@@ -4,23 +4,39 @@ namespace Kristories\Qrcode;
 
 use Cache;
 use Laravel\Nova\Fields\Field;
+use Laravel\Nova\Http\Requests\NovaRequest;
 
 class Qrcode extends Field
 {
+
+    /**
+     * The callback used to retrieve the QR text.
+     *
+     * @var callable
+     */
+    public $textCallback;
+
     /**
      * The field's component.
      *
      * @var string
      */
     public $component = 'qrcode';
-    
-    
-    public function __construct()
+
+    /**
+     * Specify the callback that should be used to retrieve the QR text.
+     *
+     * @param  callable  $textCallback
+     * @return $this
+     */
+    public function text(callable $textCallback)
     {
-        $this->exceptOnForms();
+        $this->textCallback = $textCallback;
+
+        return $this;
     }
 
-    public function text($text = null)
+    public function plainText($text = null)
     {
         return $this->withMeta(['text' => $text]);
     }
@@ -51,5 +67,27 @@ class Qrcode extends Field
         }
 
         return false;
+    }
+
+    /**
+     * Resolve the QR code for the field.
+     *
+     * @return string|null
+     */
+    public function resolveQrCode()
+    {
+        return call_user_func($this->textCallback, $this->value, $this->resource);
+    }
+
+    /**
+     * Prepare the field for JSON serialization.
+     *
+     * @return array
+     */
+    public function jsonSerialize()
+    {
+        return array_merge(parent::jsonSerialize(), [
+            'text' => $this->resolveQrCode(),
+        ]);
     }
 }
